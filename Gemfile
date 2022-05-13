@@ -1,3 +1,3 @@
-gem 'capybara'
-gem 'rspec'
 gem 'puppeteer-ruby'
+gem 'dotenv'
+gem 'clipboard'

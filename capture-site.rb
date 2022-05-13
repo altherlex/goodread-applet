@@ -1,5 +1,6 @@
 require 'puppeteer-ruby'
 require 'clipboard'
+require 'dotenv/load'
 
 Puppeteer.launch(headless: false, args: ['--no-sandbox', '--disable-dev-shm-usage']) do |browser|
   page = browser.new_page
@@ -7,10 +8,10 @@ Puppeteer.launch(headless: false, args: ['--no-sandbox', '--disable-dev-shm-usag
   page.goto(signin_url, wait_until: 'domcontentloaded')
 
   page.query_selector("#ap_email").click
-  page.keyboard.type_text("user@gmail.com")
+  page.keyboard.type_text(ENV['GODREADS_USER'])
 
   page.query_selector("#ap_password").click
-  page.keyboard.type_text("*************")
+  page.keyboard.type_text(ENV['GODREADS_PASSWORD'])
 
   page.wait_for_navigation do
     page.query_selector("#signInSubmit").click
@@ -20,7 +21,6 @@ Puppeteer.launch(headless: false, args: ['--no-sandbox', '--disable-dev-shm-usag
   page = browser.new_page
   page.goto("https://www.goodreads.com/quotes/new", wait_until: 'domcontentloaded')
 
-  # applebook_clipboard = `pbpaste`
   applebook_clipboard = Clipboard.paste
 
   pbpaste_list = applebook_clipboard.split('”')
@@ -31,29 +31,14 @@ Puppeteer.launch(headless: false, args: ['--no-sandbox', '--disable-dev-shm-usag
   # --Type quote
   page.query_selector("#quote_body").focus
   page.keyboard.type_text(quote)
-  # Clipboard.copy(quote)
-  # page.evaluate(<<~JAVASCRIPT)
-  #   () => { document.execCommand('cut') }
-  # JAVASCRIPT
-  # page.keyboard.down('MetaLeft');
-  # page.keyboard.press('v');
-  # page.keyboard.up('MetaLeft');
 
   # --Type author
   page.query_selector("#quote_author_name").focus
   page.keyboard.type_text(author)
-  # Clipboard.copy(author)
-  # page.keyboard.down('Control');
-  # page.keyboard.press('v');
-  # page.keyboard.up('Control');
 
   # --Type tag
   page.query_selector("#quote_tags_string").focus
   page.keyboard.type_text(book)
-  # Clipboard.copy(book)
-  # page.keyboard.down('Control');
-  # page.keyboard.press('v');
-  # page.keyboard.up('Control');
 
   Clipboard.copy(applebook_clipboard)
   page.screenshot(path: "goodreads-sign-in-page.png")
