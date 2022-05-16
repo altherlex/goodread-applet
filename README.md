@@ -4,6 +4,14 @@ Quick Action is added to the touch bar to get highlighted text from the Books Ap
 
 - This is a proof of concept.
 
+## Tools
+
+- puppeteer-ruby
+- clipboard
+- dotenv/load
+- active_support/core_ext/string
+
+
 ## Issues
 
-Pupptetter cannot by pass Google Recaptcha
+Puppeteer cannot by pass Google Recaptcha.
