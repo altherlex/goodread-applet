@@ -1,0 +1,28 @@
+{
+  "book_count": 1,
+  "author_count": 1,
+  "data": [
+    {
+      "book_id": "BDBCE4ADE1BC20C9692195517AF48370",
+      "author": "Joaquim Nabuco",
+      "title": "Minha Formação",
+      "last_engaged_date": 675007891.939878,
+      "reading_progress": 0.4454022943973541,
+      "marked_as_finished": null,
+      "purchase_date": 674321180.01629,
+      "genre": "Memórias",
+      "lang": "pt",
+      "file_size": 562981,
+      "page_count": 0,
+      "created_at": 674321181.623649,
+      "updated_at": 674719358.173955,
+      "asset_details_modification_date": 674719358.174595,
+      "notes": [
+
+      ],
+      "covers": [
+
+      ]
+    }
+  ]
+}

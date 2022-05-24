@@ -1,4 +1,5 @@
-gem 'puppeteer-ruby'
 gem 'dotenv'
-gem 'clipboard'
-gem 'activesupport', '>=3.2.0'
+gem 'sqlite3'
+gem 'google_search_results'
+gem 'json'
+gem 'httpx'

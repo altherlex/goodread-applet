@@ -1,9 +1,14 @@
 require "sqlite3"
-require "pathname"
 require "json"
+require "google_search_results"
+require "json"
+require "httpx"
+require 'dotenv/load'
 
 APPLE_BOOK_ANNOTATION_PATH = "/Library/Containers/com.apple.iBooksX/Data/Documents/AEAnnotation/AEAnnotation_v10312011_1727_local.sqlite"
 APPLE_BOOK_LIBRARY_PATH = "/Library/Containers/com.apple.iBooksX/Data/Documents/BKLibrary/BKLibrary-1-091020131601.sqlite"
+BOOK_DB_FILENAME = "ibook_history.json"
+BOOKCOVER_FILENAME = "bookcovers_cached.json"
 
 def get(path, sql, object)
   path = File.expand_path('~') + path
@@ -17,9 +22,16 @@ def get(path, sql, object)
   result
 end
 
+def cloud_upload(filename)
+  file = File.read(filename)
+  body = { files: Hash[filename, { content: file }] }
+  auth_client = HTTPX.plugin(:authentication)
+  auth_client.authentication("Bearer #{ENV["TOKEN"]}").patch(ENV["API_SERVER"], body: body.to_json )
+end
 
 SELECT_ANNOTATION=<<~SQL
   SELECT
+    Z_PK AS PK,
     ZANNOTATIONASSETID AS BOOK_ID,
     ZFUTUREPROOFING5 AS CHAPTER,
     ZANNOTATIONSELECTEDTEXT AS TEXT,
@@ -33,9 +45,24 @@ SELECT_ANNOTATION=<<~SQL
     ZANNOTATIONTYPE AS TYPE
   FROM ZAEANNOTATION
   WHERE ZANNOTATIONDELETED = 0
+    AND (ZANNOTATIONSELECTEDTEXT IS NOT NULL AND ZANNOTATIONREPRESENTATIVETEXT IS NOT NULL)
+  ORDER BY Z_PK DESC
 SQL
 
-Annotation = Struct.new(:book_id, :chapter, :text, :sentence, :note, :path, :created_at, :updated_at, :is_inderline, :color, :type)
+Annotation = Struct.new(
+  :pk, 
+  :book_id, 
+  :chapter, 
+  :text, 
+  :sentence, 
+  :note, 
+  :path, 
+  :created_at, 
+  :updated_at, 
+  :is_inderline, 
+  :color, 
+  :type
+)
 annotations = get(APPLE_BOOK_ANNOTATION_PATH, SELECT_ANNOTATION, Annotation)
 
 
@@ -56,6 +83,7 @@ SELECT_LIBRARY=<<-SQL
     ZMODIFICATIONDATE AS UPDATED_AT,
     ZASSETDETAILSMODIFICATIONDATE AS ASSET_DETAILS_MODIFICATION_DATE
   FROM ZBKLIBRARYASSET
+  ORDER BY ZMODIFICATIONDATE DESC, Z_PK DESC
 SQL
 
 Library = Struct.new(
@@ -74,41 +102,52 @@ Library = Struct.new(
   :updated_at,
   :asset_details_modification_date
 )
-libraries = get(APPLE_BOOK_LIBRARY_PATH, SELECT_LIBRARY, Library)
+books = get(APPLE_BOOK_LIBRARY_PATH, SELECT_LIBRARY, Library)
 
-# libraries.map{|i| i[:title]}.each{|i| puts i}
-# exit(0)
+annotations = annotations.group_by{|i| i[:book_id]}
 
+book_covers_file = File.read(BOOKCOVER_FILENAME)
+book_covers = JSON.parse(book_covers_file.empty? ? "{}" : book_covers_file)
 
+# FOR TESTING
+books = [books[1]]
+
+books.each do |book| 
 # DOC: Joins Annotation with Library by book_id
-# result = annotations.map{|i1| {**i1, **(libraries.find{|i2| i2[:book_id]==i1[:book_id]} || {}) }}
-result = libraries.map{|i1| {**i1, **(annotations.find{|i2| i2[:book_id]==i1[:book_id]} || {}) }}
-# result.each do |item|
-#   p item
-# end
-# File.write("annota.json", result.to_json)
-File.write("annota.json", JSON.pretty_generate(result))
+  book[:notes] = annotations[book[:book_id]] || []
 
-# TODO: Send final JSON to Github Gist
-# const TOKEN = "YOUR_PERSONAL_ACCESS_TOKEN";
-# const GIST_ID = "YOUR_GIST_ID";
-# const GIST_FILENAME = "db.json";
-# /* 
-#  * Puts the data you want to store back into the gist
-#  */
-# async function setData(data) {
-#   const req = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-#     method: "PATCH",
-#     headers: {
-#       Authorization: `Bearer ${TOKEN}`,
-#     },
-#     body: JSON.stringify({
-#       files: {
-#         [GIST_FILENAME]: {
-#           content: JSON.stringify(data),
-#         },
-#       },
-#     }),
-#   });
-#   return req.json();
-# }
+  book[:covers] = book_covers[book[:book_id]] || []
+  # Get a book cover online
+  if book[:covers].empty?
+    begin
+      search = GoogleSearch.new(
+        q: "#{book[:title]} #{book[:author]}", 
+        tbm: "isch", 
+        serp_api_key: ENV["SERP_API_KEY"], 
+        num: 10
+      )
+      search = search.get_hash[:images_results]
+    rescue
+    end
+
+    book[:covers] ||= search.take(10).map{|img| img.slice(:position, :thumbnail, :original)}
+  end
+end
+
+result_set = {
+  book_count: books.length,
+  author_count: books.group_by{|i| i[:author]}.length,
+  data: books
+}
+
+File.write(BOOK_DB_FILENAME, JSON.pretty_generate(result_set))
+
+book_covers = {}
+books.each do |book|
+  book_covers[book[:book_id]] = book[:covers]
+end
+File.write(BOOKCOVER_FILENAME, JSON.pretty_generate(book_covers))
+
+# DOC: Upload
+# cloud_upload(BOOKCOVER_FILENAME)
+# cloud_upload(BOOK_DB_FILENAME)
